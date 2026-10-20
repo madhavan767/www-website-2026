@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>WWI Shared Storage Hub</title>
+</head>
+<body>
+  <script>
+    /**
+     * WWI Cross-Subdomain Storage Hub
+     * Runs on https://wwi.org.in/storage-hub.html
+     * Bridges master localStorage access across all *.wwi.org.in subdomains
+     */
+    function isAllowedOrigin(origin) {
+      if (!origin) return false;
+      try {
+        var u = new URL(origin);
+        var host = u.hostname.toLowerCase();
+        if (host === 'wwi.org.in' || host.endsWith('.wwi.org.in')) return true;
+        if (host === 'localhost' || host === '127.0.0.1' || host.endsWith('.localhost')) return true;
+        if (host.endsWith('.vercel.app')) return true;
+      } catch (e) {}
+      return false;
+    }
+
+    var masterBroadcastChannel = null;
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        masterBroadcastChannel = new BroadcastChannel('wwi_master_hub_channel_v1');
+        masterBroadcastChannel.onmessage = function (e) {
+          if (e.data && e.data.type === 'WWI_HUB_BROADCAST' && window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'WWI_HUB_SYNC_INCOMING',
+              key: e.data.key,
+              value: e.data.value,
+              ts: e.data.ts
+            }, '*');
+          }
+        };
+      } catch (e) {}
+    }
+
+    window.addEventListener('message', function (event) {
+      if (!isAllowedOrigin(event.origin)) return;
+      var data = event.data;
+      if (!data || typeof data !== 'object') return;
+
+      if (data.type === 'WWI_HUB_GET') {
+        try {
+          var val = localStorage.getItem(data.key);
+          event.source.postMessage({
+            type: 'WWI_HUB_RESPONSE',
+            reqId: data.reqId,
+            key: data.key,
+            value: val
+          }, event.origin);
+        } catch (err) {}
+      } else if (data.type === 'WWI_HUB_SET') {
+        try {
+          localStorage.setItem(data.key, data.value);
+          if (data.ts) {
+            localStorage.setItem(data.key + '_ts', String(data.ts));
+          }
+          localStorage.setItem(data.key + '_initialized', 'true');
+          if (masterBroadcastChannel) {
+            masterBroadcastChannel.postMessage({
+              type: 'WWI_HUB_BROADCAST',
+              key: data.key,
+              value: data.value,
+              ts: data.ts
+            });
+          }
+          event.source.postMessage({
+            type: 'WWI_HUB_SAVED',
+            reqId: data.reqId,
+            key: data.key
+          }, event.origin);
+        } catch (err) {}
+      } else if (data.type === 'WWI_HUB_GET_ALL') {
+        try {
+          var payload = {};
+          for (var i = 0; i < localStorage.length; i++) {
+            var k = localStorage.key(i);
+            if (k && k.indexOf('wwi_') === 0) {
+              payload[k] = localStorage.getItem(k);
+            }
+          }
+          event.source.postMessage({
+            type: 'WWI_HUB_ALL_RESPONSE',
+            payload: payload
+          }, event.origin);
+        } catch (err) {}
+      }
+    });
+
+    window.addEventListener('storage', function (e) {
+      if (
+        e.key &&
+        e.key.indexOf('wwi_') === 0 &&
+        e.key.indexOf('_ts') === -1 &&
+        e.key.indexOf('_initialized') === -1 &&
+        e.newValue !== null &&
+        window.parent &&
+        window.parent !== window
+      ) {
+        var ts = localStorage.getItem(e.key + '_ts');
+        window.parent.postMessage({
+          type: 'WWI_HUB_SYNC_INCOMING',
+          key: e.key,
+          value: e.newValue,
+          ts: ts ? parseInt(ts, 10) : 0
+        }, '*');
+      }
+    });
+
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: 'WWI_HUB_READY' }, '*');
+      }
+    } catch (e) {}
+  </script>
+</body>
+</html>

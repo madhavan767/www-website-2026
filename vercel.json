@@ -1,0 +1,120 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "web.wwi.org.in" }],
+      "destination": "/sitemaps/web.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "web.wwi.org.in" }],
+      "destination": "/robots/web.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "android.wwi.org.in" }],
+      "destination": "/sitemaps/android.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "android.wwi.org.in" }],
+      "destination": "/robots/android.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "maintenance.wwi.org.in" }],
+      "destination": "/sitemaps/maintenance.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "maintenance.wwi.org.in" }],
+      "destination": "/robots/maintenance.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "socialsphere.wwi.org.in" }],
+      "destination": "/sitemaps/socialsphere.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "socialsphere.wwi.org.in" }],
+      "destination": "/robots/socialsphere.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "careers.wwi.org.in" }],
+      "destination": "/sitemaps/careers.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "careers.wwi.org.in" }],
+      "destination": "/robots/careers.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "contact.wwi.org.in" }],
+      "destination": "/sitemaps/contact.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "contact.wwi.org.in" }],
+      "destination": "/robots/contact.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "support.wwi.org.in" }],
+      "destination": "/sitemaps/support.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "support.wwi.org.in" }],
+      "destination": "/robots/support.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "events.wwi.org.in" }],
+      "destination": "/sitemaps/events.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "events.wwi.org.in" }],
+      "destination": "/robots/events.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "community.wwi.org.in" }],
+      "destination": "/sitemaps/community.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "community.wwi.org.in" }],
+      "destination": "/robots/community.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "blog.wwi.org.in" }],
+      "destination": "/sitemaps/blog.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "blog.wwi.org.in" }],
+      "destination": "/robots/blog.txt"
+    },
+    {
+      "source": "/sitemap.xml",
+      "has": [{ "type": "host", "value": "aboutus.wwi.org.in" }],
+      "destination": "/sitemaps/aboutus.xml"
+    },
+    {
+      "source": "/robots.txt",
+      "has": [{ "type": "host", "value": "aboutus.wwi.org.in" }],
+      "destination": "/robots/aboutus.txt"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
