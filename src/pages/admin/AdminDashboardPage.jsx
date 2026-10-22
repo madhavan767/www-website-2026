@@ -96,7 +96,7 @@ export function AdminDashboardPage() {
   const [blogShortDesc, setBlogShortDesc] = useState('');
   const [blogContent, setBlogContent] = useState('');
   const [blogImage, setBlogImage] = useState('');
-  const [blogCategory, setBlogCategory] = useState('Technology');
+  const [blogCategory, setBlogCategory] = useState('');
   const [blogAuthor, setBlogAuthor] = useState('WWI Editorial Team');
   const [blogDate, setBlogDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [blogSuccess, setBlogSuccess] = useState('');
@@ -244,7 +244,7 @@ export function AdminDashboardPage() {
     setBlogShortDesc('');
     setBlogContent('');
     setBlogImage('');
-    setBlogCategory('Technology');
+    setBlogCategory('');
     setBlogAuthor('WWI Editorial Team');
     setBlogDate(new Date().toISOString().split('T')[0]);
     setBlogError('');
@@ -257,7 +257,7 @@ export function AdminDashboardPage() {
     setBlogShortDesc(post.shortDescription || '');
     setBlogContent(post.content || '');
     setBlogImage(post.featuredImage || '');
-    setBlogCategory(post.category || 'Technology');
+    setBlogCategory(post.category || '');
     setBlogAuthor(post.author || 'WWI Editorial Team');
     setBlogDate(post.createdAt ? post.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]);
     setBlogError('');
@@ -900,33 +900,14 @@ export function AdminDashboardPage() {
                   </label>
                   <input
                     type="text"
-                    list="admin-blog-category-list"
                     value={blogCategory}
                     onChange={(e) => setBlogCategory(e.target.value)}
-                    placeholder="Type category (e.g. Technology, AI, Cloud, Design...)"
+                    placeholder="Enter category (e.g. Technology, AI, Cloud, Design...)"
                     className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-foreground transition"
                     required
                   />
-                  <datalist id="admin-blog-category-list">
-                    {[
-                      'Technology',
-                      'Web Development',
-                      'Android & Mobile',
-                      'AI & Innovations',
-                      'Product Engineering',
-                      'Cloud & DevOps',
-                      'UI/UX Design',
-                      'Data & AI',
-                      'Cybersecurity',
-                      ...blogsList.map((b) => b.category?.trim()).filter(Boolean)
-                    ]
-                      .filter((v, i, a) => a.indexOf(v) === i)
-                      .map((cat) => (
-                        <option key={cat} value={cat} />
-                      ))}
-                  </datalist>
                   <p className="mt-1.5 text-[11px] text-muted-foreground">
-                    Typebox input: enter any custom category or choose from suggestions.
+                    Text input: enter any category for this article.
                   </p>
                 </div>
 
