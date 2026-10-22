@@ -123,6 +123,9 @@ export function writeChunkedCookie(baseKey, dataString) {
     setRawCookie(`${baseKey}_c${i}`, chunk);
   }
 
+  // Clean up any legacy unchunked single cookie
+  deleteRawCookie(baseKey);
+
   // Clear any old excess chunks
   for (let i = totalChunks; i < totalChunks + 10; i++) {
     deleteRawCookie(`${baseKey}_c${i}`);
@@ -631,6 +634,9 @@ export function removeSharedItem(key) {
     deleteRawCookie(`${key}_cnt`);
     deleteRawCookie(`${key}_ts`);
     deleteRawCookie(`${key}_initialized`);
+    for (let i = 0; i < 20; i++) {
+      deleteRawCookie(`${key}_c${i}`);
+    }
   } catch (e) {}
 
   try {

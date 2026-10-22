@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Calendar, Search, X, Sparkles } from 'lucide-react';
+import { ArrowRight, Calendar, Search, X, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import { PageHero } from '../components/common/PageHero';
 import { SubdomainLink } from '../components/common/SubdomainLink';
 import { getBlogs, subscribeToBlogs } from '../services/blogService';
@@ -9,6 +9,7 @@ import { getCurrentSubdomain } from '../utils/subdomains';
 export function BlogsPage() {
   const [posts, setPosts] = useState(() => getBlogs({ includeHidden: false }));
   const [searchKeyword, setSearchKeyword] = useState('');
+  const [showAll, setShowAll] = useState(false);
   const currentSubdomain = getCurrentSubdomain();
 
   useEffect(() => {
@@ -50,6 +51,17 @@ export function BlogsPage() {
       );
     });
   }, [posts, searchKeyword]);
+
+  // Top 3 blogs on top initially, or all blogs when "See More" is clicked
+  const displayedPosts = useMemo(() => {
+    if (showAll || searchedPosts.length <= 3) {
+      return searchedPosts;
+    }
+    return searchedPosts.slice(0, 3);
+  }, [searchedPosts, showAll]);
+
+  const hasMore = searchedPosts.length > 3;
+  const remainingCount = Math.max(0, searchedPosts.length - 3);
 
   const handleClearSearch = () => {
     setSearchKeyword('');
@@ -107,7 +119,12 @@ export function BlogsPage() {
 
                 {/* Article Count */}
                 <div className="text-xs text-muted-foreground self-start md:self-end">
-                  Showing <span className="font-semibold text-foreground">{searchedPosts.length}</span> {searchedPosts.length === 1 ? 'article' : 'articles'}
+                  Showing{' '}
+                  <span className="font-semibold text-foreground">
+                    {displayedPosts.length}
+                    {!showAll && hasMore ? ` of ${searchedPosts.length}` : ''}
+                  </span>{' '}
+                  {searchedPosts.length === 1 ? 'article' : 'articles'}
                   {searchKeyword && (
                     <span className="ml-1 text-foreground/80 font-medium">
                       for keyword "{searchKeyword}"
@@ -185,85 +202,112 @@ export function BlogsPage() {
               </button>
             </div>
           ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              <AnimatePresence mode="popLayout">
-                {searchedPosts.map((post, idx) => {
-                  const postUrl = currentSubdomain === 'blog' ? `/${post.slug}` : `/blogs/${post.slug}`;
-                  const formattedDate = post.createdAt
-                    ? new Date(post.createdAt).toLocaleDateString('en-US', {
-                        year: 'numeric',
-                        month: 'short',
-                        day: 'numeric'
-                      })
-                    : null;
+            <>
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <AnimatePresence mode="popLayout">
+                  {displayedPosts.map((post, idx) => {
+                    const postUrl = currentSubdomain === 'blog' ? `/${post.slug}` : `/blogs/${post.slug}`;
+                    const formattedDate = post.createdAt
+                      ? new Date(post.createdAt).toLocaleDateString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
+                        })
+                      : null;
 
-                  return (
-                    <motion.div
-                      key={post.id || post.slug}
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, scale: 0.96 }}
-                      transition={{ duration: 0.35, delay: Math.min((idx % 6) * 0.05, 0.25) }}
-                      className="h-full"
-                    >
-                      <SubdomainLink
-                        subdomain="blog"
-                        to={postUrl}
-                        className="group block rounded-2xl bg-card border border-border overflow-hidden hover:border-foreground/40 hover:shadow-md transition-all h-full flex flex-col"
+                    return (
+                      <motion.div
+                        key={post.id || post.slug}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.96 }}
+                        transition={{ duration: 0.35, delay: Math.min((idx % 6) * 0.05, 0.25) }}
+                        className="h-full"
                       >
-                        {post.featuredImage ? (
-                          <div className="w-full aspect-[16/9] overflow-hidden bg-secondary">
-                            <img
-                              src={post.featuredImage}
-                              alt={post.title}
-                              loading="lazy"
-                              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                            />
-                          </div>
-                        ) : (
-                          <div className="w-full aspect-[16/9] bg-secondary flex items-center justify-center text-xs text-muted-foreground font-mono">
-                            WWI Editorial
-                          </div>
-                        )}
+                        <SubdomainLink
+                          subdomain="blog"
+                          to={postUrl}
+                          className="group block rounded-2xl bg-card border border-border overflow-hidden hover:border-foreground/40 hover:shadow-md transition-all h-full flex flex-col"
+                        >
+                          {post.featuredImage ? (
+                            <div className="w-full aspect-[16/9] overflow-hidden bg-secondary">
+                              <img
+                                src={post.featuredImage}
+                                alt={post.title}
+                                loading="lazy"
+                                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full aspect-[16/9] bg-secondary flex items-center justify-center text-xs text-muted-foreground font-mono">
+                              WWI Editorial
+                            </div>
+                          )}
 
-                        <div className="p-5 flex-1 flex flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                              {post.category && (
-                                <span className="uppercase tracking-wider font-semibold">
-                                  {post.category}
-                                </span>
-                              )}
-                              {formattedDate && (
-                                <span className="inline-flex items-center gap-1">
-                                  <Calendar className="w-3 h-3" />
-                                  {formattedDate}
-                                </span>
+                          <div className="p-5 flex-1 flex flex-col justify-between">
+                            <div>
+                              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                                {post.category && (
+                                  <span className="uppercase tracking-wider font-semibold">
+                                    {post.category}
+                                  </span>
+                                )}
+                                {formattedDate && (
+                                  <span className="inline-flex items-center gap-1">
+                                    <Calendar className="w-3 h-3" />
+                                    {formattedDate}
+                                  </span>
+                                )}
+                              </div>
+
+                              <h2 className="mt-1 font-bold text-lg text-foreground group-hover:underline line-clamp-2">
+                                {post.title}
+                              </h2>
+
+                              {post.shortDescription && (
+                                <p className="mt-2 text-xs sm:text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                                  {post.shortDescription}
+                                </p>
                               )}
                             </div>
 
-                            <h2 className="mt-1 font-bold text-lg text-foreground group-hover:underline line-clamp-2">
-                              {post.title}
-                            </h2>
-
-                            {post.shortDescription && (
-                              <p className="mt-2 text-xs sm:text-sm text-muted-foreground line-clamp-3 leading-relaxed">
-                                {post.shortDescription}
-                              </p>
-                            )}
+                            <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-foreground">
+                              <span>Read Article</span>
+                              <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
+                            </div>
                           </div>
+                        </SubdomainLink>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
 
-                          <div className="mt-5 pt-3 border-t border-border/60 flex items-center justify-between text-xs font-semibold text-foreground">
-                            <span>Read Article</span>
-                            <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-1" />
-                          </div>
-                        </div>
-                      </SubdomainLink>
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
-            </div>
+              {/* See More Button to Access All Blogs */}
+              {hasMore && (
+                <div className="mt-12 text-center">
+                  {!showAll ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAll(true)}
+                      className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-foreground text-background text-sm font-semibold hover:opacity-90 active:scale-95 transition-all shadow-md group cursor-pointer"
+                    >
+                      <span>See More ({remainingCount} more {remainingCount === 1 ? 'blog' : 'blogs'})</span>
+                      <ChevronDown className="w-4 h-4 transition-transform group-hover:translate-y-0.5" />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowAll(false)}
+                      className="inline-flex items-center gap-2 px-8 py-3.5 rounded-full bg-card border border-border text-foreground text-sm font-medium hover:border-foreground/40 active:scale-95 transition-all shadow-xs group cursor-pointer"
+                    >
+                      <span>Show Less</span>
+                      <ChevronUp className="w-4 h-4 transition-transform group-hover:-translate-y-0.5" />
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
       </section>
