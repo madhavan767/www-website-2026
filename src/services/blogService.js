@@ -102,6 +102,20 @@ export function getBlogBySlug(slug) {
 }
 
 /**
+ * Returns all unique categories across existing blog posts.
+ */
+export function getBlogCategories() {
+  const posts = initializeStore();
+  const cats = new Set();
+  posts.forEach(p => {
+    if (p.category && typeof p.category === 'string' && p.category.trim()) {
+      cats.add(p.category.trim());
+    }
+  });
+  return Array.from(cats);
+}
+
+/**
  * Creates a new blog post.
  */
 export function createBlog({

@@ -291,7 +291,7 @@ export function AdminDashboardPage() {
           shortDescription: blogShortDesc,
           content: blogContent,
           featuredImage: blogImage,
-          category: blogCategory,
+          category: blogCategory.trim() || 'Technology',
           author: blogAuthor,
           createdAt: new Date(blogDate).toISOString()
         });
@@ -303,7 +303,7 @@ export function AdminDashboardPage() {
           shortDescription: blogShortDesc,
           content: blogContent,
           featuredImage: blogImage,
-          category: blogCategory,
+          category: blogCategory.trim() || 'Technology',
           author: blogAuthor,
           createdAt: new Date(blogDate).toISOString()
         });
@@ -896,19 +896,38 @@ export function AdminDashboardPage() {
 
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                    Category
+                    Category *
                   </label>
-                  <select
+                  <input
+                    type="text"
+                    list="admin-blog-category-list"
                     value={blogCategory}
                     onChange={(e) => setBlogCategory(e.target.value)}
+                    placeholder="Type category (e.g. Technology, AI, Cloud, Design...)"
                     className="w-full px-4 py-3 rounded-xl bg-background border border-border text-foreground text-sm focus:outline-none focus:ring-1 focus:ring-foreground transition"
-                  >
-                    <option value="Technology">Technology</option>
-                    <option value="Web Development">Web Development</option>
-                    <option value="Android & Mobile">Android &amp; Mobile</option>
-                    <option value="AI & Innovations">AI &amp; Innovations</option>
-                    <option value="Product Engineering">Product Engineering</option>
-                  </select>
+                    required
+                  />
+                  <datalist id="admin-blog-category-list">
+                    {[
+                      'Technology',
+                      'Web Development',
+                      'Android & Mobile',
+                      'AI & Innovations',
+                      'Product Engineering',
+                      'Cloud & DevOps',
+                      'UI/UX Design',
+                      'Data & AI',
+                      'Cybersecurity',
+                      ...blogsList.map((b) => b.category?.trim()).filter(Boolean)
+                    ]
+                      .filter((v, i, a) => a.indexOf(v) === i)
+                      .map((cat) => (
+                        <option key={cat} value={cat} />
+                      ))}
+                  </datalist>
+                  <p className="mt-1.5 text-[11px] text-muted-foreground">
+                    Typebox input: enter any custom category or choose from suggestions.
+                  </p>
                 </div>
 
                 <div>
