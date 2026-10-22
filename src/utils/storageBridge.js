@@ -20,8 +20,8 @@
 
 const SYNC_EVENT = 'wwi_storage_bridge_sync';
 const BROADCAST_NAME = 'wwi_storage_channel_v1';
-const MAX_COOKIE_PAYLOAD_BYTES = 4000;
-const COOKIE_CHUNK_SIZE = 1000; // 1000 chars * ~3 URL-encoded bytes = ~3000 bytes max (safe within 4096 byte cookie limit)
+const MAX_COOKIE_PAYLOAD_BYTES = 60000;
+const COOKIE_CHUNK_SIZE = 2500; // 2500 chars * ~1.2 URL-encoded safe bytes = ~3000 bytes max (safe within 4096 byte cookie limit)
 
 // Determine shared domain for cookies
 export function getCookieDomain() {
@@ -79,22 +79,13 @@ export function deleteRawCookie(name) {
 }
 
 /**
- * Write chunked cross-subdomain cookie for payloads up to 4KB.
+ * Write chunked cross-subdomain cookie for payloads up to 60KB.
  */
 export function writeChunkedCookie(baseKey, dataString) {
   if (typeof document === 'undefined') return;
 
   if (dataString.length > MAX_COOKIE_PAYLOAD_BYTES) {
-    // Delete excess chunks if payload exceeded safe cookie size
-    const countStr = getRawCookie(`${baseKey}_cnt`);
-    if (countStr) {
-      const prevTotal = parseInt(countStr, 10) || 0;
-      for (let i = 0; i < prevTotal + 5; i++) {
-        deleteRawCookie(`${baseKey}_c${i}`);
-      }
-      deleteRawCookie(`${baseKey}_cnt`);
-      deleteRawCookie(baseKey);
-    }
+    console.warn(`[StorageBridge] Payload for ${baseKey} (${dataString.length} bytes) exceeds cookie storage limit (${MAX_COOKIE_PAYLOAD_BYTES} bytes).`);
     return;
   }
 

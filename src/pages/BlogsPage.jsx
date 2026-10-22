@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Calendar, Search, X, Sparkles, Filter } from 'lucide-react';
+import { ArrowRight, Calendar, Search, X, Sparkles } from 'lucide-react';
 import { PageHero } from '../components/common/PageHero';
 import { SubdomainLink } from '../components/common/SubdomainLink';
 import { getBlogs, subscribeToBlogs } from '../services/blogService';
@@ -8,7 +8,7 @@ import { getCurrentSubdomain } from '../utils/subdomains';
 
 export function BlogsPage() {
   const [posts, setPosts] = useState(() => getBlogs({ includeHidden: false }));
-  const [categoryFilter, setCategoryFilter] = useState('');
+  const [searchKeyword, setSearchKeyword] = useState('');
   const currentSubdomain = getCurrentSubdomain();
 
   useEffect(() => {
@@ -20,32 +20,39 @@ export function BlogsPage() {
     return unsubscribe;
   }, []);
 
-  // Collect all unique categories from all posts
-  const allCategories = useMemo(() => {
-    const cats = new Set();
+  // Collect all unique keywords / topics from all posts
+  const availableKeywords = useMemo(() => {
+    const set = new Set();
     posts.forEach((p) => {
       if (p.category && typeof p.category === 'string' && p.category.trim()) {
-        cats.add(p.category.trim());
+        set.add(p.category.trim());
       }
     });
-    return Array.from(cats);
+    return Array.from(set);
   }, [posts]);
 
-  // Filter posts based on category input
-  const filteredPosts = useMemo(() => {
-    if (!categoryFilter.trim()) return posts;
-    const query = categoryFilter.trim().toLowerCase();
-    return posts.filter((p) =>
-      p.category && p.category.toLowerCase().includes(query)
-    );
-  }, [posts, categoryFilter]);
+  // Search posts by keyword across title, category, description, author, and content
+  const searchedPosts = useMemo(() => {
+    if (!searchKeyword.trim()) return posts;
+    const query = searchKeyword.trim().toLowerCase();
+    return posts.filter((p) => {
+      const title = (p.title || '').toLowerCase();
+      const category = (p.category || '').toLowerCase();
+      const desc = (p.shortDescription || '').toLowerCase();
+      const author = (p.author || '').toLowerCase();
+      const content = (p.content || '').toLowerCase();
+      return (
+        title.includes(query) ||
+        category.includes(query) ||
+        desc.includes(query) ||
+        author.includes(query) ||
+        content.includes(query)
+      );
+    });
+  }, [posts, searchKeyword]);
 
-  const handleCategoryChange = (val) => {
-    setCategoryFilter(val);
-  };
-
-  const handleClearCategory = () => {
-    setCategoryFilter('');
+  const handleClearSearch = () => {
+    setSearchKeyword('');
   };
 
   return (
@@ -57,92 +64,95 @@ export function BlogsPage() {
 
       <section className="px-6 py-12 md:py-16">
         <div className="max-w-6xl mx-auto">
-          {/* Controls: Category Typebox & Quick Filters */}
+          {/* Search Keyword for Blog */}
           {posts.length > 0 && (
             <div className="mb-10 space-y-4">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                {/* Category Typebox Input */}
+                {/* Search Keyword Input */}
                 <div className="w-full md:max-w-md">
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1.5">
-                    <Filter className="w-3.5 h-3.5" /> Filter by Category
+                    <Search className="w-3.5 h-3.5" /> Search Keyword for Blog
                   </label>
                   <div className="relative">
                     <Search className="w-4 h-4 text-muted-foreground absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
-                      list="blog-category-filter-list"
-                      value={categoryFilter}
-                      onChange={(e) => handleCategoryChange(e.target.value)}
-                      placeholder="Type category to filter (e.g. Technology, AI, Web...)"
+                      list="blog-keyword-suggestions"
+                      value={searchKeyword}
+                      onChange={(e) => setSearchKeyword(e.target.value)}
+                      placeholder="Search keyword for blog (e.g. AI, React, Architecture)..."
                       className="w-full pl-10 pr-9 py-2.5 rounded-xl bg-card border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-foreground transition"
                     />
-                    {categoryFilter && (
+                    {searchKeyword && (
                       <button
                         type="button"
-                        onClick={handleClearCategory}
+                        onClick={handleClearSearch}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 rounded-full transition"
-                        title="Clear category filter"
-                        aria-label="Clear category filter"
+                        title="Clear search"
+                        aria-label="Clear search"
                       >
                         <X className="w-3.5 h-3.5" />
                       </button>
                     )}
-                    <datalist id="blog-category-filter-list">
-                      {allCategories.map((cat) => (
-                        <option key={cat} value={cat} />
+                    <datalist id="blog-keyword-suggestions">
+                      {availableKeywords.map((kw) => (
+                        <option key={kw} value={kw} />
                       ))}
                     </datalist>
                   </div>
                   <p className="mt-1 text-[11px] text-muted-foreground">
-                    Type any category name to instantly filter articles.
+                    Search articles by keyword, title, topic, or content.
                   </p>
                 </div>
 
-                {/* Article Count & Quick View Info */}
+                {/* Article Count */}
                 <div className="text-xs text-muted-foreground self-start md:self-end">
-                  Showing <span className="font-semibold text-foreground">{filteredPosts.length}</span> {filteredPosts.length === 1 ? 'article' : 'articles'}
-                  {categoryFilter && (
+                  Showing <span className="font-semibold text-foreground">{searchedPosts.length}</span> {searchedPosts.length === 1 ? 'article' : 'articles'}
+                  {searchKeyword && (
                     <span className="ml-1 text-foreground/80 font-medium">
-                      matching "{categoryFilter}"
+                      for keyword "{searchKeyword}"
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Quick Category Chips */}
-              {allCategories.length > 0 && (
+              {/* Quick Keywords / Topics */}
+              {availableKeywords.length > 0 && (
                 <div className="flex items-center gap-2 flex-wrap pt-1">
                   <span className="text-xs font-medium text-muted-foreground mr-1">
-                    Categories:
+                    Keywords:
                   </span>
                   <button
                     type="button"
-                    onClick={handleClearCategory}
+                    onClick={handleClearSearch}
                     className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
-                      !categoryFilter.trim()
+                      !searchKeyword.trim()
                         ? 'bg-foreground text-background border-foreground shadow-xs'
                         : 'bg-card text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground'
                     }`}
                   >
                     All ({posts.length})
                   </button>
-                  {allCategories.map((cat) => {
-                    const isActive = categoryFilter.trim().toLowerCase() === cat.toLowerCase();
-                    const count = posts.filter(
-                      (p) => p.category && p.category.toLowerCase() === cat.toLowerCase()
-                    ).length;
+                  {availableKeywords.map((kw) => {
+                    const isActive = searchKeyword.trim().toLowerCase() === kw.toLowerCase();
+                    const count = posts.filter((p) => {
+                      const query = kw.toLowerCase();
+                      const category = (p.category || '').toLowerCase();
+                      const title = (p.title || '').toLowerCase();
+                      return category.includes(query) || title.includes(query);
+                    }).length;
                     return (
                       <button
-                        key={cat}
+                        key={kw}
                         type="button"
-                        onClick={() => handleCategoryChange(cat)}
+                        onClick={() => setSearchKeyword(kw)}
                         className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
                           isActive
                             ? 'bg-foreground text-background border-foreground shadow-xs'
                             : 'bg-card text-muted-foreground border-border hover:border-foreground/40 hover:text-foreground'
                         }`}
                       >
-                        {cat} ({count})
+                        {kw} ({count})
                       </button>
                     );
                   })}
@@ -158,26 +168,26 @@ export function BlogsPage() {
                 No articles published yet — check back soon!
               </p>
             </div>
-          ) : filteredPosts.length === 0 ? (
+          ) : searchedPosts.length === 0 ? (
             <div className="text-center py-16 border border-border rounded-2xl bg-card">
               <p className="text-foreground font-semibold">
-                No articles found for "{categoryFilter}"
+                No articles found for keyword "{searchKeyword}"
               </p>
               <p className="text-xs text-muted-foreground mt-1">
-                Try searching for another category or clear the filter.
+                Try searching for a different keyword or view all articles.
               </p>
               <button
                 type="button"
-                onClick={handleClearCategory}
+                onClick={handleClearSearch}
                 className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-foreground text-background text-xs font-medium hover:opacity-90 transition"
               >
-                Clear Category Filter <X className="w-3.5 h-3.5" />
+                Clear Search <X className="w-3.5 h-3.5" />
               </button>
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               <AnimatePresence mode="popLayout">
-                {filteredPosts.map((post, idx) => {
+                {searchedPosts.map((post, idx) => {
                   const postUrl = currentSubdomain === 'blog' ? `/${post.slug}` : `/blogs/${post.slug}`;
                   const formattedDate = post.createdAt
                     ? new Date(post.createdAt).toLocaleDateString('en-US', {

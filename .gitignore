@@ -33,3 +33,4 @@ pnpm-debug.log*
 # OS generated
 .DS_Store
 Thumbs.db
+public/assets/Screenshot*.png
