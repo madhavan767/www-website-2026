@@ -20,7 +20,7 @@
 
 const SYNC_EVENT = 'wwi_storage_bridge_sync';
 const BROADCAST_NAME = 'wwi_storage_channel_v1';
-const MAX_COOKIE_PAYLOAD_BYTES = 60000;
+const MAX_COOKIE_PAYLOAD_BYTES = 7500;
 const COOKIE_CHUNK_SIZE = 2500; // 2500 chars * ~1.2 URL-encoded safe bytes = ~3000 bytes max (safe within 4096 byte cookie limit)
 
 // Determine shared domain for cookies
@@ -84,18 +84,42 @@ export function deleteRawCookie(name) {
 export function writeChunkedCookie(baseKey, dataString) {
   if (typeof document === 'undefined') return;
 
-  if (dataString.length > MAX_COOKIE_PAYLOAD_BYTES) {
-    console.warn(`[StorageBridge] Payload for ${baseKey} (${dataString.length} bytes) exceeds cookie storage limit (${MAX_COOKIE_PAYLOAD_BYTES} bytes).`);
-    return;
+  let payload = dataString;
+  if (payload.length > MAX_COOKIE_PAYLOAD_BYTES) {
+    // If it's a JSON array, create a slim preview (without heavy content body) so cross-subdomain listing works flawlessly
+    try {
+      const parsed = JSON.parse(dataString);
+      if (Array.isArray(parsed)) {
+        const slim = parsed.map(item => {
+          if (item && typeof item === 'object') {
+            const { content, ...rest } = item;
+            return rest;
+          }
+          return item;
+        });
+        const slimStr = JSON.stringify(slim);
+        if (slimStr.length <= MAX_COOKIE_PAYLOAD_BYTES) {
+          payload = slimStr;
+        } else {
+          console.warn(`[StorageBridge] Slim payload for ${baseKey} exceeds cookie limit.`);
+          return;
+        }
+      } else {
+        console.warn(`[StorageBridge] Payload for ${baseKey} (${dataString.length} bytes) exceeds cookie storage limit.`);
+        return;
+      }
+    } catch {
+      return;
+    }
   }
 
-  const len = dataString.length;
+  const len = payload.length;
   const totalChunks = Math.ceil(len / COOKIE_CHUNK_SIZE);
 
   setRawCookie(`${baseKey}_cnt`, String(totalChunks));
 
   for (let i = 0; i < totalChunks; i++) {
-    const chunk = dataString.slice(i * COOKIE_CHUNK_SIZE, (i + 1) * COOKIE_CHUNK_SIZE);
+    const chunk = payload.slice(i * COOKIE_CHUNK_SIZE, (i + 1) * COOKIE_CHUNK_SIZE);
     setRawCookie(`${baseKey}_c${i}`, chunk);
   }
 
@@ -140,6 +164,50 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
   try {
     broadcastChannel = new BroadcastChannel(BROADCAST_NAME);
   } catch (e) {}
+}
+
+// Merge two array collections losslessly by unique id or slug
+export function mergeArrayCollections(arrA, arrB) {
+  if (!Array.isArray(arrA) && !Array.isArray(arrB)) return [];
+  if (!Array.isArray(arrA)) return Array.isArray(arrB) ? arrB : [];
+  if (!Array.isArray(arrB)) return Array.isArray(arrA) ? arrA : [];
+
+  const map = new Map();
+  arrA.forEach(item => {
+    if (item && typeof item === 'object') {
+      const id = item.id || item.slug || JSON.stringify(item);
+      map.set(id, item);
+    }
+  });
+
+  arrB.forEach(item => {
+    if (item && typeof item === 'object') {
+      const id = item.id || item.slug || JSON.stringify(item);
+      const existing = map.get(id);
+      if (!existing) {
+        map.set(id, item);
+      } else {
+        const tsExisting = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
+        const tsIncoming = new Date(item.updatedAt || item.createdAt || 0).getTime();
+        const mergedItem = { ...existing, ...item };
+        // If incoming is missing detailed content but existing had it, preserve existing content
+        if (!item.content && existing.content) {
+          mergedItem.content = existing.content;
+        }
+        if (tsIncoming >= tsExisting) {
+          map.set(id, mergedItem);
+        } else {
+          const fallbackMerged = { ...item, ...existing };
+          if (!existing.content && item.content) {
+            fallbackMerged.content = item.content;
+          }
+          map.set(id, fallbackMerged);
+        }
+      }
+    }
+  });
+
+  return Array.from(map.values());
 }
 
 // Storage Hub Iframe Management
@@ -201,14 +269,29 @@ function ensureHubIframe() {
               const localTs = localTsStr ? parseInt(localTsStr, 10) : 0;
               const localVal = localStorage.getItem(k);
 
-              // ONLY update if local has no value at all, OR if remote timestamp is strictly newer
-              const shouldUpdate = (localVal === null) || (remoteTs > 0 && remoteTs > localTs);
+              let pRemote = null;
+              let pLocal = null;
+              try { pRemote = JSON.parse(val); } catch (e) {}
+              try { pLocal = localVal ? JSON.parse(localVal) : null; } catch (e) {}
 
-              if (shouldUpdate) {
-                localStorage.setItem(k, val);
-                if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
+              // If both hold arrays (e.g. blogs, jobs), merge them losslessly!
+              if (Array.isArray(pRemote) && Array.isArray(pLocal)) {
+                const merged = mergeArrayCollections(pLocal, pRemote);
+                const maxTs = Math.max(localTs, remoteTs, Date.now());
+                const serialized = JSON.stringify(merged);
+                localStorage.setItem(k, serialized);
+                localStorage.setItem(k + '_ts', String(maxTs));
                 localStorage.setItem(k + '_initialized', 'true');
-                window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: val, ts: remoteTs } }));
+                window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: serialized, ts: maxTs } }));
+              } else {
+                // Non-array items: update if local has no value at all, OR if remote timestamp is strictly newer
+                const shouldUpdate = (localVal === null) || (remoteTs > 0 && remoteTs > localTs);
+                if (shouldUpdate) {
+                  localStorage.setItem(k, val);
+                  if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
+                  localStorage.setItem(k + '_initialized', 'true');
+                  window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: val, ts: remoteTs } }));
+                }
               }
             } catch (err) {}
           }
@@ -220,8 +303,22 @@ function ensureHubIframe() {
           const incomingTs = data.ts ? parseInt(data.ts, 10) : 0;
           const localTsStr = localStorage.getItem(data.key + '_ts');
           const localTs = localTsStr ? parseInt(localTsStr, 10) : 0;
+          const localVal = localStorage.getItem(data.key);
 
-          if (incomingTs === 0 || incomingTs >= localTs) {
+          let pIncoming = null;
+          let pLocal = null;
+          try { pIncoming = JSON.parse(data.value); } catch (e) {}
+          try { pLocal = localVal ? JSON.parse(localVal) : null; } catch (e) {}
+
+          if (Array.isArray(pIncoming) && Array.isArray(pLocal)) {
+            const merged = mergeArrayCollections(pLocal, pIncoming);
+            const maxTs = Math.max(localTs, incomingTs, Date.now());
+            const serialized = JSON.stringify(merged);
+            localStorage.setItem(data.key, serialized);
+            localStorage.setItem(data.key + '_ts', String(maxTs));
+            localStorage.setItem(data.key + '_initialized', 'true');
+            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: data.key, value: serialized, ts: maxTs } }));
+          } else if (incomingTs === 0 || incomingTs >= localTs) {
             localStorage.setItem(data.key, data.value);
             if (incomingTs) localStorage.setItem(data.key + '_ts', String(incomingTs));
             localStorage.setItem(data.key + '_initialized', 'true');
@@ -243,6 +340,10 @@ function ensureHubIframe() {
 
 export function getApiStoreUrl() {
   if (typeof window !== 'undefined' && window.location) {
+    const host = window.location.hostname.toLowerCase();
+    if (host === 'wwi.org.in' || host.endsWith('.wwi.org.in')) {
+      return 'https://wwi.org.in/api/wwi-store';
+    }
     const origin = window.location.origin || (window.location.protocol && window.location.host ? `${window.location.protocol}//${window.location.host}` : '');
     if (origin && !origin.startsWith('null') && origin !== '//undefined') {
       return `${origin}/api/wwi-store`;
@@ -284,13 +385,28 @@ export async function syncFromServerStore() {
           const localTsStr = localStorage.getItem(k + '_ts');
           const localTs = localTsStr ? parseInt(localTsStr, 10) : 0;
 
-          // Only update if local is missing or remote timestamp is newer or equal
-          const shouldUpdate = localVal === null || (remoteTs > 0 && remoteTs >= localTs);
-          if (shouldUpdate) {
-            localStorage.setItem(k, serialized);
-            if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
+          let pRemote = null;
+          let pLocal = null;
+          try { pRemote = JSON.parse(serialized); } catch (e) {}
+          try { pLocal = localVal ? JSON.parse(localVal) : null; } catch (e) {}
+
+          if (Array.isArray(pRemote) && Array.isArray(pLocal)) {
+            const merged = mergeArrayCollections(pLocal, pRemote);
+            const maxTs = Math.max(localTs, remoteTs, Date.now());
+            const finalVal = JSON.stringify(merged);
+            localStorage.setItem(k, finalVal);
+            localStorage.setItem(k + '_ts', String(maxTs));
             localStorage.setItem(k + '_initialized', 'true');
-            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: serialized, ts: remoteTs } }));
+            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: finalVal, ts: maxTs } }));
+          } else {
+            // Only update if local is missing or remote timestamp is newer or equal
+            const shouldUpdate = localVal === null || (remoteTs > 0 && remoteTs >= localTs);
+            if (shouldUpdate) {
+              localStorage.setItem(k, serialized);
+              if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
+              localStorage.setItem(k + '_initialized', 'true');
+              window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: serialized, ts: remoteTs } }));
+            }
           }
         } catch (err) {}
       }
@@ -342,7 +458,7 @@ if (typeof window !== 'undefined') {
  * Get shared item with cross-subdomain resolution:
  * 1. Read localStorage and timestamp
  * 2. Read chunked cross-subdomain cookies (.wwi.org.in) and timestamp
- * 3. Use the newest copy and persist to local storage
+ * 3. Merge array collections losslessly so all blogs/jobs are preserved everywhere
  * 4. Fallback to defaultValue
  */
 export function getSharedItem(key, defaultValue = null) {
@@ -364,36 +480,64 @@ export function getSharedItem(key, defaultValue = null) {
     if (cTsStr) cookieTs = parseInt(cTsStr, 10) || 0;
   } catch (e) {}
 
-  // 1. If cookie timestamp is strictly NEWER than local, update local from cookie
+  let localParsed = null;
+  if (localRaw !== null) {
+    try { localParsed = JSON.parse(localRaw); } catch (e) {}
+  }
+
+  let cookieParsed = null;
+  if (cookieRaw !== null) {
+    try { cookieParsed = JSON.parse(cookieRaw); } catch (e) {}
+  }
+
+  // 1. If both local and cookie hold arrays (e.g. blogs, jobs), MERGE them losslessly!
+  if (Array.isArray(localParsed) && Array.isArray(cookieParsed)) {
+    const merged = mergeArrayCollections(localParsed, cookieParsed);
+    const maxTs = Math.max(localTs, cookieTs, Date.now());
+    const serialized = JSON.stringify(merged);
+    try {
+      localStorage.setItem(key, serialized);
+      localStorage.setItem(`${key}_ts`, String(maxTs));
+      localStorage.setItem(`${key}_initialized`, 'true');
+      writeChunkedCookie(key, serialized);
+      setRawCookie(`${key}_ts`, String(maxTs));
+    } catch (e) {}
+    return merged;
+  }
+
+  // 2. If local exists as an array, persist to cookie if cookie was empty or missing
+  if (Array.isArray(localParsed)) {
+    if (!cookieRaw && localParsed.length > 0) {
+      try {
+        writeChunkedCookie(key, localRaw);
+        setRawCookie(`${key}_ts`, String(localTs || Date.now()));
+      } catch (e) {}
+    }
+    return localParsed;
+  }
+
+  // 3. If cookie exists as an array, persist to local
+  if (Array.isArray(cookieParsed)) {
+    try {
+      localStorage.setItem(key, cookieRaw);
+      localStorage.setItem(`${key}_ts`, String(cookieTs || Date.now()));
+      localStorage.setItem(`${key}_initialized`, 'true');
+    } catch (e) {}
+    return cookieParsed;
+  }
+
+  // 4. Non-array item handling
   if (cookieRaw && cookieTs > localTs) {
     try {
-      const parsedCookie = JSON.parse(cookieRaw);
       localStorage.setItem(key, cookieRaw);
       localStorage.setItem(`${key}_ts`, String(cookieTs));
       localStorage.setItem(`${key}_initialized`, 'true');
-      return parsedCookie;
+      return cookieParsed !== null ? cookieParsed : cookieRaw;
     } catch (e) {}
   }
 
-  // 2. If local exists, return local
-  if (localRaw !== null) {
-    try {
-      return JSON.parse(localRaw);
-    } catch (e) {}
-  }
-
-  // 3. Fallback to cookie if local was null
-  if (cookieRaw !== null) {
-    try {
-      const parsedCookie = JSON.parse(cookieRaw);
-      try {
-        localStorage.setItem(key, cookieRaw);
-        if (cookieTs) localStorage.setItem(`${key}_ts`, String(cookieTs));
-        localStorage.setItem(`${key}_initialized`, 'true');
-      } catch (e) {}
-      return parsedCookie;
-    } catch (e) {}
-  }
+  if (localParsed !== null) return localParsed;
+  if (cookieParsed !== null) return cookieParsed;
 
   return defaultValue;
 }

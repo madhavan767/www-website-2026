@@ -57,17 +57,58 @@
         } catch (err) {}
       } else if (data.type === 'WWI_HUB_SET') {
         try {
-          localStorage.setItem(data.key, data.value);
-          if (data.ts) {
-            localStorage.setItem(data.key + '_ts', String(data.ts));
-          }
+          var finalVal = data.value;
+          var incomingTs = data.ts || Date.now();
+
+          try {
+            var curr = localStorage.getItem(data.key);
+            if (curr) {
+              var pCurr = JSON.parse(curr);
+              var pIn = JSON.parse(data.value);
+              if (Array.isArray(pCurr) && Array.isArray(pIn)) {
+                var map = {};
+                pCurr.forEach(function (it) {
+                  if (it && typeof it === 'object') {
+                    var id = it.id || it.slug || JSON.stringify(it);
+                    map[id] = it;
+                  }
+                });
+                pIn.forEach(function (it) {
+                  if (it && typeof it === 'object') {
+                    var id = it.id || it.slug || JSON.stringify(it);
+                    if (!map[id]) {
+                      map[id] = it;
+                    } else {
+                      var tsExisting = new Date(map[id].updatedAt || map[id].createdAt || 0).getTime();
+                      var tsIncoming = new Date(it.updatedAt || it.createdAt || 0).getTime();
+                      var merged = {};
+                      for (var attr in map[id]) { merged[attr] = map[id][attr]; }
+                      for (var attr in it) { merged[attr] = it[attr]; }
+                      if (!it.content && map[id].content) {
+                        merged.content = map[id].content;
+                      }
+                      map[id] = merged;
+                    }
+                  }
+                });
+                var mergedArr = [];
+                for (var key in map) {
+                  mergedArr.push(map[key]);
+                }
+                finalVal = JSON.stringify(mergedArr);
+              }
+            }
+          } catch (e) {}
+
+          localStorage.setItem(data.key, finalVal);
+          localStorage.setItem(data.key + '_ts', String(incomingTs));
           localStorage.setItem(data.key + '_initialized', 'true');
           if (masterBroadcastChannel) {
             masterBroadcastChannel.postMessage({
               type: 'WWI_HUB_BROADCAST',
               key: data.key,
-              value: data.value,
-              ts: data.ts
+              value: finalVal,
+              ts: incomingTs
             });
           }
           event.source.postMessage({
