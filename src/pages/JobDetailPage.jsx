@@ -8,7 +8,6 @@ import {
   BadgeCheck,
   Coins,
   Send,
-  Briefcase,
   Calendar,
   FileCheck
 } from 'lucide-react';
@@ -179,38 +178,6 @@ export function JobDetailPage() {
               >
                 Apply Now <Send className="w-4 h-4" />
               </Link>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-card p-6">
-              <div className="flex items-center gap-2 text-sm font-semibold">
-                <Briefcase className="w-4 h-4" /> Role Snapshot
-              </div>
-              <div className="mt-4 space-y-3 text-sm">
-                <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
-                  <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                    Department
-                  </span>
-                  <span className="text-sm font-medium text-right">
-                    {job.department || "Engineering"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
-                  <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                    Remote
-                  </span>
-                  <span className="text-sm font-medium text-right">
-                    {job.remote ? "Yes" : "No"}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-muted-foreground text-xs uppercase tracking-wider">
-                    Skills
-                  </span>
-                  <span className="text-sm font-medium text-right truncate max-w-[180px]">
-                    {job.skills || "Not specified"}
-                  </span>
-                </div>
-              </div>
             </div>
           </aside>
         </div>
