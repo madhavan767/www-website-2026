@@ -101,8 +101,15 @@ export function writeChunkedCookie(baseKey, dataString) {
         if (slimStr.length <= MAX_COOKIE_PAYLOAD_BYTES) {
           payload = slimStr;
         } else {
-          console.warn(`[StorageBridge] Slim payload for ${baseKey} exceeds cookie limit.`);
-          return;
+          // If still exceeding cookie size, keep the most recent items with truncated descriptions so cookie stays fresh
+          const trimmed = slim.slice(0, 15).map(item => {
+            if (item && typeof item === 'object' && item.shortDescription && item.shortDescription.length > 120) {
+              return { ...item, shortDescription: item.shortDescription.slice(0, 120) + '...' };
+            }
+            return item;
+          });
+          const trimmedStr = JSON.stringify(trimmed);
+          payload = trimmedStr.length <= MAX_COOKIE_PAYLOAD_BYTES ? trimmedStr : JSON.stringify(trimmed.slice(0, 8));
         }
       } else {
         console.warn(`[StorageBridge] Payload for ${baseKey} (${dataString.length} bytes) exceeds cookie storage limit.`);
@@ -127,7 +134,7 @@ export function writeChunkedCookie(baseKey, dataString) {
   deleteRawCookie(baseKey);
 
   // Clear any old excess chunks
-  for (let i = totalChunks; i < totalChunks + 10; i++) {
+  for (let i = totalChunks; i < totalChunks + 25; i++) {
     deleteRawCookie(`${baseKey}_c${i}`);
   }
 }
@@ -169,48 +176,37 @@ if (typeof window !== 'undefined' && typeof BroadcastChannel !== 'undefined') {
   } catch (e) {}
 }
 
-// Merge two array collections losslessly by unique id or slug
-export function mergeArrayCollections(arrA, arrB) {
-  if (!Array.isArray(arrA) && !Array.isArray(arrB)) return [];
-  if (!Array.isArray(arrA)) return Array.isArray(arrB) ? arrB : [];
-  if (!Array.isArray(arrB)) return Array.isArray(arrA) ? arrA : [];
+/**
+ * Hydrates missing detailed content into a newer array from an older array.
+ * Strictly preserves the set of items in newerArr so deletions and updates are never reverted.
+ */
+export function hydrateArrayContent(newerArr, olderArr) {
+  if (!Array.isArray(newerArr)) return Array.isArray(olderArr) ? olderArr : [];
+  if (!Array.isArray(olderArr)) return newerArr;
 
-  const map = new Map();
-  arrA.forEach(item => {
+  const olderMap = new Map();
+  olderArr.forEach((item) => {
     if (item && typeof item === 'object') {
-      const id = item.id || item.slug || JSON.stringify(item);
-      map.set(id, item);
+      const id = item.id || item.slug;
+      if (id) olderMap.set(id, item);
     }
   });
 
-  arrB.forEach(item => {
+  return newerArr.map((item) => {
     if (item && typeof item === 'object') {
-      const id = item.id || item.slug || JSON.stringify(item);
-      const existing = map.get(id);
-      if (!existing) {
-        map.set(id, item);
-      } else {
-        const tsExisting = new Date(existing.updatedAt || existing.createdAt || 0).getTime();
-        const tsIncoming = new Date(item.updatedAt || item.createdAt || 0).getTime();
-        const mergedItem = { ...existing, ...item };
-        // If incoming is missing detailed content but existing had it, preserve existing content
-        if (!item.content && existing.content) {
-          mergedItem.content = existing.content;
-        }
-        if (tsIncoming >= tsExisting) {
-          map.set(id, mergedItem);
-        } else {
-          const fallbackMerged = { ...item, ...existing };
-          if (!existing.content && item.content) {
-            fallbackMerged.content = item.content;
-          }
-          map.set(id, fallbackMerged);
-        }
+      const id = item.id || item.slug;
+      const olderItem = id ? olderMap.get(id) : null;
+      if (!item.content && olderItem && olderItem.content) {
+        return { ...item, content: olderItem.content };
       }
     }
+    return item;
   });
+}
 
-  return Array.from(map.values());
+// Backward-compatible alias
+export function mergeArrayCollections(arrA, arrB) {
+  return hydrateArrayContent(arrA, arrB);
 }
 
 // Storage Hub Iframe Management
@@ -277,23 +273,28 @@ function ensureHubIframe() {
               try { pRemote = JSON.parse(val); } catch (e) {}
               try { pLocal = localVal ? JSON.parse(localVal) : null; } catch (e) {}
 
-              // If both hold arrays (e.g. blogs, jobs), merge them losslessly!
-              if (Array.isArray(pRemote) && Array.isArray(pLocal)) {
-                const merged = mergeArrayCollections(pLocal, pRemote);
-                const maxTs = Math.max(localTs, remoteTs, Date.now());
-                const serialized = JSON.stringify(merged);
-                localStorage.setItem(k, serialized);
-                localStorage.setItem(k + '_ts', String(maxTs));
+              // If local has no value at all, OR remote is strictly newer
+              if (localVal === null || (remoteTs > 0 && remoteTs > localTs)) {
+                let finalVal = val;
+                if (Array.isArray(pRemote)) {
+                  const hydrated = hydrateArrayContent(pRemote, pLocal);
+                  finalVal = JSON.stringify(hydrated);
+                }
+                localStorage.setItem(k, finalVal);
+                if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
                 localStorage.setItem(k + '_initialized', 'true');
-                window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: serialized, ts: maxTs } }));
-              } else {
-                // Non-array items: update if local has no value at all, OR if remote timestamp is strictly newer
-                const shouldUpdate = (localVal === null) || (remoteTs > 0 && remoteTs > localTs);
-                if (shouldUpdate) {
-                  localStorage.setItem(k, val);
-                  if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
-                  localStorage.setItem(k + '_initialized', 'true');
-                  window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: val, ts: remoteTs } }));
+                window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: finalVal, ts: remoteTs } }));
+              } else if (localTs > remoteTs && localVal !== null) {
+                // Local is strictly newer than hub! Update hub with current local data
+                if (hubIframe && hubIframe.contentWindow) {
+                  try {
+                    hubIframe.contentWindow.postMessage({
+                      type: 'WWI_HUB_SET',
+                      key: k,
+                      value: localVal,
+                      ts: localTs
+                    }, '*');
+                  } catch (e) {}
                 }
               }
             } catch (err) {}
@@ -313,19 +314,17 @@ function ensureHubIframe() {
           try { pIncoming = JSON.parse(data.value); } catch (e) {}
           try { pLocal = localVal ? JSON.parse(localVal) : null; } catch (e) {}
 
-          if (Array.isArray(pIncoming) && Array.isArray(pLocal)) {
-            const merged = mergeArrayCollections(pLocal, pIncoming);
-            const maxTs = Math.max(localTs, incomingTs, Date.now());
-            const serialized = JSON.stringify(merged);
-            localStorage.setItem(data.key, serialized);
-            localStorage.setItem(data.key + '_ts', String(maxTs));
-            localStorage.setItem(data.key + '_initialized', 'true');
-            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: data.key, value: serialized, ts: maxTs } }));
-          } else if (incomingTs === 0 || incomingTs >= localTs) {
-            localStorage.setItem(data.key, data.value);
+          // Only accept incoming update if incoming is newer or equal, or local has no data
+          if (localVal === null || incomingTs === 0 || incomingTs >= localTs) {
+            let finalVal = data.value;
+            if (Array.isArray(pIncoming)) {
+              const hydrated = hydrateArrayContent(pIncoming, pLocal);
+              finalVal = JSON.stringify(hydrated);
+            }
+            localStorage.setItem(data.key, finalVal);
             if (incomingTs) localStorage.setItem(data.key + '_ts', String(incomingTs));
             localStorage.setItem(data.key + '_initialized', 'true');
-            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: data.key, value: data.value, ts: incomingTs } }));
+            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: data.key, value: finalVal, ts: incomingTs } }));
           }
         } catch (err) {}
       }
@@ -393,23 +392,27 @@ export async function syncFromServerStore() {
           try { pRemote = JSON.parse(serialized); } catch (e) {}
           try { pLocal = localVal ? JSON.parse(localVal) : null; } catch (e) {}
 
-          if (Array.isArray(pRemote) && Array.isArray(pLocal)) {
-            const merged = mergeArrayCollections(pLocal, pRemote);
-            const maxTs = Math.max(localTs, remoteTs, Date.now());
-            const finalVal = JSON.stringify(merged);
-            localStorage.setItem(k, finalVal);
-            localStorage.setItem(k + '_ts', String(maxTs));
-            localStorage.setItem(k + '_initialized', 'true');
-            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: finalVal, ts: maxTs } }));
-          } else {
-            // Only update if local is missing or remote timestamp is newer or equal
-            const shouldUpdate = localVal === null || (remoteTs > 0 && remoteTs >= localTs);
-            if (shouldUpdate) {
-              localStorage.setItem(k, serialized);
-              if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
-              localStorage.setItem(k + '_initialized', 'true');
-              window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: serialized, ts: remoteTs } }));
+          // Only update local if local is missing or remote timestamp is strictly newer
+          if (localVal === null || (remoteTs > 0 && remoteTs > localTs)) {
+            let finalVal = serialized;
+            if (Array.isArray(pRemote)) {
+              const hydrated = hydrateArrayContent(pRemote, pLocal);
+              finalVal = JSON.stringify(hydrated);
             }
+            localStorage.setItem(k, finalVal);
+            if (remoteTs) localStorage.setItem(k + '_ts', String(remoteTs));
+            localStorage.setItem(k + '_initialized', 'true');
+            window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: { key: k, value: finalVal, ts: remoteTs } }));
+          } else if (localTs > remoteTs && localVal !== null) {
+            // Local is strictly newer! Push to server so server store is updated
+            fetch(getApiStoreUrl(), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                [k]: { value: localVal, ts: localTs },
+                [`${k}_ts`]: localTs
+              })
+            }).catch(() => {});
           }
         } catch (err) {}
       }
@@ -451,6 +454,24 @@ if (typeof window !== 'undefined') {
   if (broadcastChannel) {
     broadcastChannel.onmessage = (e) => {
       if (e.data && e.data.key) {
+        const { key, value, ts } = e.data;
+        if (value !== undefined) {
+          const incomingTs = ts ? parseInt(ts, 10) : 0;
+          const localTsStr = localStorage.getItem(`${key}_ts`);
+          const localTs = localTsStr ? parseInt(localTsStr, 10) : 0;
+          if (incomingTs >= localTs) {
+            try {
+              if (value === null) {
+                localStorage.removeItem(key);
+                localStorage.removeItem(`${key}_ts`);
+              } else {
+                localStorage.setItem(key, value);
+                localStorage.setItem(`${key}_ts`, String(incomingTs));
+                localStorage.setItem(`${key}_initialized`, 'true');
+              }
+            } catch (err) {}
+          }
+        }
         window.dispatchEvent(new CustomEvent(SYNC_EVENT, { detail: e.data }));
       }
     };
@@ -461,7 +482,7 @@ if (typeof window !== 'undefined') {
  * Get shared item with cross-subdomain resolution:
  * 1. Read localStorage and timestamp
  * 2. Read chunked cross-subdomain cookies (.wwi.org.in) and timestamp
- * 3. Merge array collections losslessly so all blogs/jobs are preserved everywhere
+ * 3. Compare timestamps to choose the definitive source of truth without resurrecting deleted items
  * 4. Fallback to defaultValue
  */
 export function getSharedItem(key, defaultValue = null) {
@@ -493,19 +514,22 @@ export function getSharedItem(key, defaultValue = null) {
     try { cookieParsed = JSON.parse(cookieRaw); } catch (e) {}
   }
 
-  // 1. If both local and cookie hold arrays (e.g. blogs, jobs), MERGE them losslessly!
-  if (Array.isArray(localParsed) && Array.isArray(cookieParsed)) {
-    const merged = mergeArrayCollections(localParsed, cookieParsed);
-    const maxTs = Math.max(localTs, cookieTs, Date.now());
-    const serialized = JSON.stringify(merged);
-    try {
-      localStorage.setItem(key, serialized);
-      localStorage.setItem(`${key}_ts`, String(maxTs));
-      localStorage.setItem(`${key}_initialized`, 'true');
-      writeChunkedCookie(key, serialized);
-      setRawCookie(`${key}_ts`, String(maxTs));
-    } catch (e) {}
-    return merged;
+  // 1. Both local and cookie exist: resolve using timestamps
+  if (localParsed !== null && cookieParsed !== null) {
+    if (cookieTs > localTs) {
+      // Cookie is strictly newer (e.g. modified on another subdomain)
+      const hydrated = Array.isArray(cookieParsed) ? hydrateArrayContent(cookieParsed, localParsed) : cookieParsed;
+      const serialized = JSON.stringify(hydrated);
+      try {
+        localStorage.setItem(key, serialized);
+        localStorage.setItem(`${key}_ts`, String(cookieTs));
+        localStorage.setItem(`${key}_initialized`, 'true');
+      } catch (e) {}
+      return hydrated;
+    }
+
+    // Local is newer or equal: use local
+    return localParsed;
   }
 
   // 2. If local exists as an array, persist to cookie if cookie was empty or missing

@@ -58,59 +58,58 @@
       } else if (data.type === 'WWI_HUB_SET') {
         try {
           var finalVal = data.value;
-          var incomingTs = data.ts || Date.now();
+          var incomingTs = data.ts ? parseInt(data.ts, 10) : Date.now();
+          var currTsStr = localStorage.getItem(data.key + '_ts');
+          var currTs = currTsStr ? parseInt(currTsStr, 10) : 0;
 
-          try {
-            var curr = localStorage.getItem(data.key);
-            if (curr) {
-              var pCurr = JSON.parse(curr);
-              var pIn = JSON.parse(data.value);
-              if (Array.isArray(pCurr) && Array.isArray(pIn)) {
-                var map = {};
-                pCurr.forEach(function (it) {
-                  if (it && typeof it === 'object') {
-                    var id = it.id || it.slug || JSON.stringify(it);
-                    map[id] = it;
-                  }
-                });
-                pIn.forEach(function (it) {
-                  if (it && typeof it === 'object') {
-                    var id = it.id || it.slug || JSON.stringify(it);
-                    if (!map[id]) {
-                      map[id] = it;
-                    } else {
-                      var tsExisting = new Date(map[id].updatedAt || map[id].createdAt || 0).getTime();
-                      var tsIncoming = new Date(it.updatedAt || it.createdAt || 0).getTime();
-                      var merged = {};
-                      for (var attr in map[id]) { merged[attr] = map[id][attr]; }
-                      for (var attr in it) { merged[attr] = it[attr]; }
-                      if (!it.content && map[id].content) {
-                        merged.content = map[id].content;
-                      }
-                      map[id] = merged;
+          // If incoming is newer or equal, incoming snapshot is the source of truth
+          if (incomingTs >= currTs) {
+            try {
+              var curr = localStorage.getItem(data.key);
+              if (curr) {
+                var pCurr = JSON.parse(curr);
+                var pIn = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+                if (Array.isArray(pCurr) && Array.isArray(pIn)) {
+                  var mapCurr = {};
+                  pCurr.forEach(function (it) {
+                    if (it && typeof it === 'object') {
+                      var id = it.id || it.slug;
+                      if (id) mapCurr[id] = it;
                     }
-                  }
-                });
-                var mergedArr = [];
-                for (var key in map) {
-                  mergedArr.push(map[key]);
+                  });
+                  // Map strictly over pIn so deleted items remain deleted
+                  var updatedIn = pIn.map(function (it) {
+                    if (it && typeof it === 'object') {
+                      var id = it.id || it.slug;
+                      var ex = id ? mapCurr[id] : null;
+                      if (!it.content && ex && ex.content) {
+                        var cloned = {};
+                        for (var a in it) { cloned[a] = it[a]; }
+                        cloned.content = ex.content;
+                        return cloned;
+                      }
+                    }
+                    return it;
+                  });
+                  finalVal = JSON.stringify(updatedIn);
                 }
-                finalVal = JSON.stringify(mergedArr);
               }
-            }
-          } catch (e) {}
+            } catch (e) {}
 
-          localStorage.setItem(data.key, finalVal);
-          localStorage.setItem(data.key + '_ts', String(incomingTs));
-          localStorage.setItem(data.key + '_initialized', 'true');
-          if (masterBroadcastChannel) {
-            masterBroadcastChannel.postMessage({
-              type: 'WWI_HUB_BROADCAST',
-              key: data.key,
-              value: finalVal,
-              ts: incomingTs
-            });
+            localStorage.setItem(data.key, finalVal);
+            localStorage.setItem(data.key + '_ts', String(incomingTs));
+            localStorage.setItem(data.key + '_initialized', 'true');
+
+            if (masterBroadcastChannel) {
+              masterBroadcastChannel.postMessage({
+                type: 'WWI_HUB_BROADCAST',
+                key: data.key,
+                value: finalVal,
+                ts: incomingTs
+              });
+            }
           }
+
           event.source.postMessage({
             type: 'WWI_HUB_SAVED',
             reqId: data.reqId,

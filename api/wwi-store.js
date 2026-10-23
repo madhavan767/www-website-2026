@@ -39,37 +39,42 @@ export default function handler(req, res) {
           } catch (e) {}
         }
 
-        if (Array.isArray(pExisting) && Array.isArray(pIncoming)) {
-          const map = new Map();
-          pExisting.forEach((it) => {
-            if (it && typeof it === 'object') {
-              const id = it.id || it.slug || JSON.stringify(it);
-              map.set(id, it);
-            }
-          });
-          pIncoming.forEach((it) => {
-            if (it && typeof it === 'object') {
-              const id = it.id || it.slug || JSON.stringify(it);
-              const ex = map.get(id);
-              if (!ex) {
-                map.set(id, it);
-              } else {
-                const merged = { ...ex, ...it };
-                if (!it.content && ex.content) merged.content = ex.content;
-                map.set(id, merged);
+        const incomingTs = typeof val === 'object' && val !== null && val.ts ? val.ts : (payload[k + '_ts'] || Date.now());
+        const existingTs = typeof rawExisting === 'object' && rawExisting !== null && rawExisting.ts ? rawExisting.ts : (memoryStore[k + '_ts'] || 0);
+
+        // If incoming timestamp is newer or equal, incoming snapshot is the definitive state
+        if (incomingTs >= existingTs) {
+          if (Array.isArray(pExisting) && Array.isArray(pIncoming)) {
+            // Strictly preserve the set of items in pIncoming so deletions stay deleted.
+            // Only hydrate missing content from pExisting if pIncoming was stripped for cookies.
+            const existingMap = new Map();
+            pExisting.forEach((it) => {
+              if (it && typeof it === 'object') {
+                const id = it.id || it.slug;
+                if (id) existingMap.set(id, it);
               }
-            }
-          });
-          const mergedArr = Array.from(map.values());
-          const serializedArr = JSON.stringify(mergedArr);
-          const maxTs = Math.max(
-            typeof val === 'object' && val !== null && val.ts ? val.ts : 0,
-            typeof rawExisting === 'object' && rawExisting !== null && rawExisting.ts ? rawExisting.ts : 0,
-            Date.now()
-          );
-          memoryStore[k] = typeof val === 'object' && val !== null && 'value' in val ? { value: serializedArr, ts: maxTs } : serializedArr;
-        } else {
-          memoryStore[k] = val;
+            });
+
+            const updatedIncoming = pIncoming.map((it) => {
+              if (it && typeof it === 'object') {
+                const id = it.id || it.slug;
+                const ex = id ? existingMap.get(id) : null;
+                if (!it.content && ex && ex.content) {
+                  return { ...it, content: ex.content };
+                }
+              }
+              return it;
+            });
+
+            const serializedArr = JSON.stringify(updatedIncoming);
+            memoryStore[k] = typeof val === 'object' && val !== null && 'value' in val
+              ? { value: serializedArr, ts: incomingTs }
+              : serializedArr;
+            memoryStore[k + '_ts'] = incomingTs;
+          } else {
+            memoryStore[k] = val;
+            if (incomingTs) memoryStore[k + '_ts'] = incomingTs;
+          }
         }
       });
       return res.status(200).json({ success: true, timestamp: Date.now() });

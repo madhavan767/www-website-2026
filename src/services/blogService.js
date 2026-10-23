@@ -26,8 +26,11 @@ export function generateSlug(text) {
 function seedDefaultBlogs() {
   return initialBlogsData.map((b, idx) => ({
     ...b,
-    hidden: false,
-    createdAt: b.createdAt || new Date(Date.now() - idx * 86400000).toISOString()
+    id: b.id || b.slug || generateSlug(b.title || `post-${idx}`) || `blog-${idx}-${Date.now()}`,
+    slug: b.slug || generateSlug(b.title || `post-${idx}`),
+    hidden: !!b.hidden,
+    createdAt: b.createdAt || new Date(Date.now() - idx * 86400000).toISOString(),
+    updatedAt: b.updatedAt || b.createdAt || new Date(Date.now() - idx * 86400000).toISOString()
   }));
 }
 
@@ -56,7 +59,14 @@ function initializeStore() {
 
     // If existing store exists (even if empty array []), preserve it
     if (data !== null && Array.isArray(data)) {
-      return data;
+      return data.map((b, idx) => ({
+        ...b,
+        id: b.id || b.slug || `blog-${idx}-${Date.now()}`,
+        slug: b.slug || generateSlug(b.title || `post-${idx}`),
+        hidden: !!b.hidden,
+        createdAt: b.createdAt || new Date().toISOString(),
+        updatedAt: b.updatedAt || b.createdAt || new Date().toISOString()
+      }));
     }
 
     return seedDefaultBlogs();
@@ -98,7 +108,7 @@ export function getBlogs({ includeHidden = false } = {}) {
 export function getBlogBySlug(slug) {
   if (!slug) return null;
   const posts = initializeStore();
-  return posts.find(p => p.slug === slug && !p.hidden) || null;
+  return posts.find(p => (p.slug === slug || p.id === slug) && !p.hidden) || null;
 }
 
 /**
@@ -141,13 +151,22 @@ export function createBlog({
     counter++;
   }
 
+  let formattedDate = new Date().toISOString();
+  if (createdAt) {
+    const d = new Date(createdAt);
+    if (!isNaN(d.getTime())) {
+      formattedDate = d.toISOString();
+    }
+  }
+
   const newPost = {
     id: `blog-${Date.now()}`,
     slug: finalSlug,
     title: title.trim(),
     category: category.trim() || 'Technology',
     author: author.trim() || 'WWI Editorial Team',
-    createdAt: new Date(createdAt).toISOString(),
+    createdAt: formattedDate,
+    updatedAt: formattedDate,
     featuredImage: featuredImage?.trim() || '',
     shortDescription: shortDescription?.trim() || '',
     content: content?.trim() || '',
@@ -160,32 +179,48 @@ export function createBlog({
 }
 
 /**
- * Updates an existing blog post by ID.
+ * Updates an existing blog post by ID or Slug.
  */
 export function updateBlog(id, updatedFields) {
+  if (!id) return null;
   const posts = initializeStore();
-  const index = posts.findIndex(p => p.id === id);
+  const index = posts.findIndex(p => p.id === id || p.slug === id);
   if (index === -1) return null;
 
   const existing = posts[index];
+  const actualId = existing.id || id;
   let finalSlug = existing.slug;
 
   if (updatedFields.slug && updatedFields.slug !== existing.slug) {
     const cleanSlug = generateSlug(updatedFields.slug);
     finalSlug = cleanSlug;
     let counter = 1;
-    while (posts.some(p => p.slug === finalSlug && p.id !== id)) {
+    while (posts.some(p => p.slug === finalSlug && p.id !== actualId && p.slug !== existing.slug)) {
       finalSlug = `${cleanSlug}-${counter}`;
       counter++;
+    }
+  }
+
+  let formattedCreatedAt = existing.createdAt;
+  if (updatedFields.createdAt) {
+    const d = new Date(updatedFields.createdAt);
+    if (!isNaN(d.getTime())) {
+      formattedCreatedAt = d.toISOString();
     }
   }
 
   const updatedPost = {
     ...existing,
     ...updatedFields,
+    id: actualId,
     slug: finalSlug,
     title: updatedFields.title !== undefined ? updatedFields.title.trim() : existing.title,
-    createdAt: updatedFields.createdAt ? new Date(updatedFields.createdAt).toISOString() : existing.createdAt,
+    category: updatedFields.category !== undefined ? (updatedFields.category.trim() || 'Technology') : (existing.category || 'Technology'),
+    author: updatedFields.author !== undefined ? (updatedFields.author.trim() || 'WWI Editorial Team') : (existing.author || 'WWI Editorial Team'),
+    featuredImage: updatedFields.featuredImage !== undefined ? updatedFields.featuredImage.trim() : (existing.featuredImage || ''),
+    shortDescription: updatedFields.shortDescription !== undefined ? updatedFields.shortDescription.trim() : (existing.shortDescription || ''),
+    content: updatedFields.content !== undefined ? updatedFields.content.trim() : (existing.content || ''),
+    createdAt: formattedCreatedAt,
     updatedAt: new Date().toISOString()
   };
 
@@ -198,21 +233,24 @@ export function updateBlog(id, updatedFields) {
  * Toggles visibility (hide/unhide) of a blog post.
  */
 export function toggleBlogVisibility(id) {
+  if (!id) return null;
   const posts = initializeStore();
-  const post = posts.find(p => p.id === id);
+  const post = posts.find(p => p.id === id || p.slug === id);
   if (!post) return null;
 
   post.hidden = !post.hidden;
+  post.updatedAt = new Date().toISOString();
   saveStore(posts);
   return post;
 }
 
 /**
- * Deletes a blog post by ID.
+ * Deletes a blog post by ID or Slug.
  */
 export function deleteBlog(id) {
+  if (!id) return false;
   const posts = initializeStore();
-  const updated = posts.filter(p => p.id !== id);
+  const updated = posts.filter(p => p.id !== id && p.slug !== id);
   saveStore(updated);
   return true;
 }

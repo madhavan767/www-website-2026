@@ -251,9 +251,10 @@ export function AdminDashboardPage() {
   };
 
   const startEditBlog = (post) => {
-    setEditingBlogId(post.id);
-    setBlogTitle(post.title);
-    setBlogSlug(post.slug);
+    const bId = post.id || post.slug;
+    setEditingBlogId(bId);
+    setBlogTitle(post.title || '');
+    setBlogSlug(post.slug || '');
     setBlogShortDesc(post.shortDescription || '');
     setBlogContent(post.content || '');
     setBlogImage(post.featuredImage || '');
@@ -284,8 +285,16 @@ export function AdminDashboardPage() {
     }
 
     try {
+      let formattedDate = new Date().toISOString();
+      if (blogDate) {
+        const d = new Date(blogDate);
+        if (!isNaN(d.getTime())) {
+          formattedDate = d.toISOString();
+        }
+      }
+
       if (editingBlogId) {
-        updateBlog(editingBlogId, {
+        const updated = updateBlog(editingBlogId, {
           title: blogTitle,
           slug: blogSlug,
           shortDescription: blogShortDesc,
@@ -293,8 +302,12 @@ export function AdminDashboardPage() {
           featuredImage: blogImage,
           category: blogCategory.trim() || 'Technology',
           author: blogAuthor,
-          createdAt: new Date(blogDate).toISOString()
+          createdAt: formattedDate
         });
+        if (!updated) {
+          setBlogError('Failed to update article. Please check inputs and try again.');
+          return;
+        }
         setBlogSuccess('Article updated successfully and updated live on the website!');
       } else {
         createBlog({
@@ -305,7 +318,7 @@ export function AdminDashboardPage() {
           featuredImage: blogImage,
           category: blogCategory.trim() || 'Technology',
           author: blogAuthor,
-          createdAt: new Date(blogDate).toISOString()
+          createdAt: formattedDate
         });
         setBlogSuccess('New article published successfully! It is now live on blog.wwi.org.in.');
       }
@@ -323,6 +336,8 @@ export function AdminDashboardPage() {
       deleteBlog(id);
       setBlogsList(getBlogs({ includeHidden: true }));
       if (editingBlogId === id) resetBlogForm();
+      setBlogSuccess(`Article "${title}" deleted successfully.`);
+      setTimeout(() => setBlogSuccess(''), 4000);
     }
   };
 
@@ -1010,10 +1025,11 @@ Or simply paste any direct URL like https://wwi.org.in and it will automatically
                 {blogsList.map((post) => {
                   const postDate = post.createdAt ? new Date(post.createdAt).toLocaleDateString() : 'N/A';
                   const liveUrl = getSubdomainUrl('blog', `/${post.slug}`);
+                  const blogId = post.id || post.slug;
 
                   return (
                     <div
-                      key={post.id}
+                      key={blogId}
                       className={`p-4 sm:p-5 rounded-2xl border transition flex flex-col md:flex-row md:items-center justify-between gap-4 ${
                         post.hidden
                           ? 'bg-secondary/30 border-border/60 opacity-60'
@@ -1084,7 +1100,7 @@ Or simply paste any direct URL like https://wwi.org.in and it will automatically
 
                         <button
                           type="button"
-                          onClick={() => handleToggleBlogHide(post.id)}
+                          onClick={() => handleToggleBlogHide(blogId)}
                           title={post.hidden ? 'Publish / Unhide' : 'Hide from Public Website'}
                           className={`p-2.5 rounded-xl border transition text-xs flex items-center gap-1.5 cursor-pointer ${
                             post.hidden
@@ -1098,7 +1114,7 @@ Or simply paste any direct URL like https://wwi.org.in and it will automatically
 
                         <button
                           type="button"
-                          onClick={() => handleDeleteBlog(post.id, post.title)}
+                          onClick={() => handleDeleteBlog(blogId, post.title)}
                           title="Delete Permanently"
                           className="p-2.5 rounded-xl border border-destructive/20 text-destructive bg-destructive/5 hover:bg-destructive/15 transition text-xs flex items-center gap-1.5 cursor-pointer"
                         >
