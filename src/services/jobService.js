@@ -63,7 +63,7 @@ function initializeJobStore() {
 
   try {
     const data = getSharedItem(JOBS_STORAGE_KEY, null);
-    if (data !== null && Array.isArray(data)) {
+    if (data !== null && Array.isArray(data) && data.length > 0) {
       return data;
     }
     return seedDefaultJobs();

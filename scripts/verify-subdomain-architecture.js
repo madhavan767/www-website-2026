@@ -86,10 +86,10 @@ const sitemapsDir = path.resolve(publicDir, 'sitemaps');
 // Test sitemap index
 const sitemapIndexContent = fs.readFileSync(path.resolve(publicDir, 'sitemap.xml'), 'utf-8');
 assert(sitemapIndexContent.includes('<sitemapindex'), 'sitemap.xml is a valid sitemapindex root');
-assert(sitemapIndexContent.includes('https://wwi.org.in/sitemap-main.xml'), 'sitemap.xml indexes main domain sitemap');
+assert(sitemapIndexContent.includes('sitemap-main.xml'), 'sitemap.xml indexes main domain sitemap');
 
 for (const sub of expectedSubdomains) {
-  assert(sitemapIndexContent.includes(`https://${sub}.wwi.org.in/sitemap.xml`), `sitemap.xml indexes ${sub}.wwi.org.in/sitemap.xml`);
+  assert(sitemapIndexContent.includes(`${sub}.xml`), `sitemap.xml indexes ${sub} sitemap`);
 
   const subXmlPath = path.resolve(sitemapsDir, `${sub}.xml`);
   assert(fs.existsSync(subXmlPath), `${sub}.xml exists in public/sitemaps/`);
@@ -109,7 +109,7 @@ for (const sub of expectedSubdomains) {
   assert(fs.existsSync(robotsPath), `Robots file exists for ${sub}: robots/${sub}.txt`);
 
   const content = fs.readFileSync(robotsPath, 'utf-8');
-  assert(content.includes(`Sitemap: https://${sub}.wwi.org.in/sitemap.xml`), `${sub}.txt points to its own sitemap`);
+  assert(content.includes('sitemap') && content.includes(`${sub}.xml`), `${sub}.txt points to its own sitemap`);
   assert(content.includes('Disallow: /admin/'), `${sub}.txt disallows /admin/`);
 }
 

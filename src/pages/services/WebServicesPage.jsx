@@ -22,8 +22,8 @@ export function WebServicesPage() {
   return (
     <>
       <PageHero
-        title="Web Services"
-        description="We craft exceptional web experiences using cutting-edge technologies and frameworks. From concept to deployment, we deliver high-performance web solutions tailored to your business needs."
+        title="Web Development Services"
+        description="Work Wizards Innovations (WWI) crafts exceptional web applications and custom software solutions using modern React runtimes, performant cloud architectures, and full-stack engineering."
       />
 
       {/* High-End Technologies */}

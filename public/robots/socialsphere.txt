@@ -1,6 +1,6 @@
 User-agent: *
 Allow: /
-Sitemap: https://socialsphere.wwi.org.in/sitemap.xml
+Sitemap: https://www.wwi.org.in/sitemaps/socialsphere.xml
 Disallow: /admin
 Disallow: /admin/
 Disallow: /admin/dashboard

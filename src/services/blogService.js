@@ -57,8 +57,8 @@ function initializeStore() {
   try {
     const data = getSharedItem(STORAGE_KEY, null);
 
-    // If existing store exists (even if empty array []), preserve it
-    if (data !== null && Array.isArray(data)) {
+    // If existing store exists and has items, preserve it
+    if (data !== null && Array.isArray(data) && data.length > 0) {
       return data.map((b, idx) => ({
         ...b,
         id: b.id || b.slug || `blog-${idx}-${Date.now()}`,

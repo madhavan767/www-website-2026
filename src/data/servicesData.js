@@ -1,20 +1,26 @@
 export const homeServices = [
   {
     iconName: "Globe",
-    title: "Web Services",
-    desc: "Custom websites tailored for business and reach with modern design and functionality.",
+    title: "Web Development",
+    desc: "Custom web development tailored for business scale with modern React runtimes, API integrations, and cloud architectures.",
     to: "/services/web"
   },
   {
     iconName: "Smartphone",
     title: "App Development",
-    desc: "Native Android & iOS applications for business and personal use cases with seamless user experiences.",
+    desc: "Native Android & cross-platform mobile app development with Kotlin, Flutter, and React Native for fluid user experiences.",
     to: "/services/app"
+  },
+  {
+    iconName: "Sparkles",
+    title: "Hackathons & Events",
+    desc: "Flagship competitive hackathons like Promptwars X WWI in partnership with Google for Developers and Hack2skill.",
+    to: "/events"
   },
   {
     iconName: "Wrench",
     title: "Maintenance & Support",
-    desc: "Ongoing technical support for your website and apps to ensure optimal performance and reliability.",
+    desc: "Ongoing technical support for your website and apps to ensure optimal performance, SLAs, and reliability.",
     to: "/services/maintenance"
   },
   {

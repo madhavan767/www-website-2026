@@ -81,7 +81,7 @@ export function HomePage() {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="mt-4 sm:mt-6 text-base sm:text-lg text-muted-foreground"
           >
-            Innovating Web, Apps &amp; Beyond
+            Innovating Web, Apps &amp; Beyond • Leading Tech Startup in AP
           </motion.p>
 
           <motion.div
@@ -110,7 +110,7 @@ export function HomePage() {
             transition={{ duration: 0.6, delay: 0.6 }}
             className="mt-6 inline-flex items-center gap-2 text-xs text-muted-foreground border border-border rounded-full px-3 py-1.5"
           >
-            <Sparkles className="w-3 h-3" /> Next-Gen Digital Solutions
+            <Sparkles className="w-3 h-3" /> Tech Startup in AP • Web &amp; App Development • Promptwars X WWI
           </motion.div>
         </div>
       </section>
@@ -196,7 +196,7 @@ export function HomePage() {
                 <div>
                   <h3 className="text-xl font-semibold">Turning Ideas Into Digital Reality</h3>
                   <p className="mt-3 text-sm text-muted-foreground leading-relaxed">
-                    At Work Wizards Innovations, we are a next-gen tech startup dedicated to building innovative digital solutions that empower businesses and professionals. Our expertise spans custom web development, mobile app creation, ongoing technical support, and launching our own brand of digital platforms that solve real-world problems.
+                    At Work Wizards Innovations (WWI), we are a fast-growing tech startup in AP (Andhra Pradesh) dedicated to building innovative digital solutions that empower businesses and developers. Our core expertise spans full-stack web development, mobile app development, ongoing technical support, and organizing flagship competitive hackathons like Promptwars X WWI.
                   </p>
                 </div>
                 <div className="mt-6">

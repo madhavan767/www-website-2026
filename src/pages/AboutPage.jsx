@@ -10,7 +10,7 @@ export function AboutPage() {
     <>
       <PageHero
         title="Our Story & Leadership"
-        description="The visionary leadership behind Work Wizards Innovations, committed to driving digital transformation and delivering excellence."
+        description="The visionary leadership behind Work Wizards Innovations (WWI) — a premier tech startup in AP committed to driving digital transformation, web development, and developer hackathons."
       />
 
       {/* Leadership Section */}

@@ -27,8 +27,8 @@ export function AppDevelopmentPage() {
   return (
     <>
       <PageHero
-        title="App Development"
-        description="We create powerful mobile applications for Android and iOS that deliver exceptional user experiences. From business solutions to consumer apps, we bring your mobile vision to life."
+        title="App Development Services"
+        description="Work Wizards Innovations (WWI) builds cutting-edge mobile applications for Android and iOS using native Kotlin, Flutter, and React Native designed for high performance and seamless scale."
       />
 
       {/* Multi-Platform Expertise */}

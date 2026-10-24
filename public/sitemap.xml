@@ -1,51 +1,51 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <sitemap>
-    <loc>https://wwi.org.in/sitemap-main.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemap-main.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://web.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/web.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://android.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/android.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://maintenance.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/maintenance.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://socialsphere.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/socialsphere.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://careers.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/careers.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://contact.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/contact.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://support.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/support.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://events.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/events.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://community.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/community.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://blog.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/blog.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
   <sitemap>
-    <loc>https://aboutus.wwi.org.in/sitemap.xml</loc>
-    <lastmod>2026-10-23</lastmod>
+    <loc>https://www.wwi.org.in/sitemaps/aboutus.xml</loc>
+    <lastmod>2026-10-24</lastmod>
   </sitemap>
 </sitemapindex>
